@@ -11,17 +11,22 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+import com.example.session.jwt.JWTFilter;
+import com.example.session.jwt.JWTUtil;
 import com.example.session.login.LoginFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 	
-	private final AuthenticationConfiguration authenticationConfiguration;
+private final AuthenticationConfiguration authenticationConfiguration;
 	
-	public SecurityConfig(AuthenticationConfiguration authenticationConfiguration) {
+	private final JWTUtil jwtUtil;
+
+    public SecurityConfig(AuthenticationConfiguration authenticationConfiguration, JWTUtil jwtUtil) {
 
         this.authenticationConfiguration = authenticationConfiguration;
+        this.jwtUtil = jwtUtil;
     }
 	
 	@Bean
@@ -53,27 +58,15 @@ public class SecurityConfig {
                 .requestMatchers("/", "/login").permitAll()
                 .anyRequest().authenticated());
 		
+		http
+        	.addFilterBefore(new JWTFilter(jwtUtil), LoginFilter.class);
 		
 		http
-			.addFilterAt(new LoginFilter(authenticationManager(authenticationConfiguration)), UsernamePasswordAuthenticationFilter.class);
+			.addFilterAt(new LoginFilter(authenticationManager(authenticationConfiguration), jwtUtil), UsernamePasswordAuthenticationFilter.class);
 
 		http
-	    	.sessionManagement((session) -> session
-	            .maximumSessions(1)
-	            .maxSessionsPreventsLogin(true)
-            );
-	
-		http
-	        .sessionManagement((session) -> session
-	            .sessionFixation((sessionFixation) -> sessionFixation
-	                .newSession()
-	            )
-	        );
-		
-		http
-	    	.sessionManagement((session) -> session
-	    		.sessionFixation().changeSessionId()
-    		);
+    		.sessionManagement((session) -> session
+				.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
 		
 		return http.build();
 		
